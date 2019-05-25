@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const gravatar = require('gravatar');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const config = require('config');
 const { check, validationResult } = require('express-validator/check');
 
 const User = require('../../models/User');
@@ -35,7 +37,7 @@ router.post(
       // see if the user exists
       let user = await User.findOne({ email });
       if (user) {
-        return res.status(400).json({ errors: 'User already exists' });
+        return res.status(400).json({ errors: [{msg: 'User Already Exists'}] });
       }
       // get the users gravatar
       const avatar = gravatar.url(email, { s: '200', r: 'pg', d: 'mm' });
@@ -50,9 +52,24 @@ router.post(
       // save user to the database
       await user.save();
 
-      // Return JSON webtoken
+      // jwt related
+      const payload = {
+          user:{
+            id:user.id
+          }
+      }
+      // signs a jwt token with your user id created by the db and the jwtSecret.
+      jwt.sign( 
+        payload,
+        config.get('jwtSecret'),
+        {expiresIn:360000},
+        (err,token) => {
+            if(err) throw err;
+            // send back token
+            res.status(200).json({token}); // we get back this token that gets stored in local storage of the users machine so that they can access protected routes after they login
+        })
+      
 
-      res.send('user registered');
     } catch (err) {
       console.error(err.message);
       res.status(500).send('Server error');
